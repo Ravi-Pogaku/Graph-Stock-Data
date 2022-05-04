@@ -10,10 +10,9 @@ import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.io.*;
 import java.net.MalformedURLException;
@@ -21,9 +20,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ResourceBundle;
+import java.util.*;
 
 public class GraphWebDataController implements Initializable {
     private Parent root;
@@ -61,6 +58,9 @@ public class GraphWebDataController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         inputInterval.getItems().addAll("1d", "1wk", "1mo"); // daily, weekly, monthly
+        Tooltip tp = new Tooltip("Daily, Weekly, or Monthly"); // shows when hovering interval choice box
+        tp.setShowDelay(Duration.seconds(0.3));
+        inputInterval.setTooltip(tp);
     }
 
     /**
@@ -79,7 +79,7 @@ public class GraphWebDataController implements Initializable {
 
     /**
      * Updates lineChart whenever new inputs are chosen
-     * @param data
+     * @param data - date and closing prices of stock
      */
     public void updateLineChart(List<List<String>> data) {
         List<Float> closingData = new ArrayList();
@@ -97,14 +97,21 @@ public class GraphWebDataController implements Initializable {
 
         lineChart = new LineChart(xAxis, yAxis);
 
-        XYChart.Series series = new XYChart.Series();
+        XYChart.Series<String, Float> series = new XYChart.Series();
+        series.setName(ticker.toUpperCase());
 
         for (int i = 0; i < dateData.size(); i++) {
             series.getData().add(new XYChart.Data(dateData.get(i), closingData.get(i)));
         }
-        series.setName(ticker.toUpperCase());
 
         lineChart.getData().add(series);
+
+        // iterates through data and puts a tooltip containing x and y values
+        for (XYChart.Data<String, Float> dataPoint: series.getData()) {
+            Tooltip tp = new Tooltip("$" + dataPoint.getYValue().toString() + "\n" + dataPoint.getXValue());
+            Tooltip.install(dataPoint.getNode(), tp);
+            tp.setShowDelay(Duration.seconds(0.2)); // tool tip appears after hovering the value for 0.3 seconds
+        }
 
         borderPane.setCenter(lineChart);
     }
@@ -142,8 +149,6 @@ public class GraphWebDataController implements Initializable {
                     handleInvalidTicker(stock);
 
                 }
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -155,7 +160,7 @@ public class GraphWebDataController implements Initializable {
     /**
      * when Invalid ticker is entered, FileNotFoundException is thrown in getStockPrices. This function is to make a
      * pop-up error message and to make the code a bit more cleanly.
-     * @param ticker
+     * @param ticker - stock identifier
      */
     public static void handleInvalidTicker(String ticker) {
         Alert tickerAlert = new Alert(Alert.AlertType.ERROR, "Invalid Ticker: " + ticker, ButtonType.CLOSE);
@@ -175,7 +180,7 @@ public class GraphWebDataController implements Initializable {
     public void handleGraphData(ActionEvent actionEvent) {
         // if null inputs, error pop-up window and don't take inputs
         if (inputStartDate.getValue() == null || inputEndDate.getValue() == null || inputInterval.getValue() == null ||
-        inputTicker.getText() == "") {
+                Objects.equals(inputTicker.getText(), "")) {
             handleNullInputs();
         }
         else {
